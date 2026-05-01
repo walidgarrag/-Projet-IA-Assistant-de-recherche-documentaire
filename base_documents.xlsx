@@ -1,0 +1,12 @@
+CREATE TABLE documents (
+    id_document INT PRIMARY KEY,
+    nom_document TEXT,
+    service TEXT,
+    responsable TEXT,
+    date_creation DATE,
+    date_mise_a_jour DATE,
+    statut TEXT,
+    jours_depuis_maj INT,
+    document_en_retard TEXT,
+    risque_retard TEXT
+);

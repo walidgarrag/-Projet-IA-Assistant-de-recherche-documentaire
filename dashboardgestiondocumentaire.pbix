@@ -1,0 +1,145 @@
+import streamlit as st
+import pandas as pd
+from sqlalchemy import create_engine
+from sqlalchemy.engine import URL
+
+DB_USER = "postgres"
+DB_PASSWORD = "Cspuc2334@2003!"
+DB_HOST = "localhost"
+DB_PORT = 5432
+DB_NAME = "gestion_documentaire"
+
+url = URL.create(
+    drivername="postgresql+psycopg2",
+    username=DB_USER,
+    password=DB_PASSWORD,
+    host=DB_HOST,
+    port=DB_PORT,
+    database=DB_NAME
+)
+
+engine = create_engine(url)
+
+st.set_page_config(page_title="Chatbot Gestion Documentaire", layout="wide")
+
+st.title("Chatbot - Gestion Documentaire")
+st.write("Pose une question sur les documents.")
+
+question = st.text_input(
+    "Ta question",
+    placeholder="Exemple : Quels documents sont en retard ?"
+)
+
+def executer_requete(sql):
+    return pd.read_sql(sql, engine)
+
+if question:
+    q = question.lower()
+
+    #  NOMBRE TOTAL
+    if "nombre" in q or "combien" in q:
+        if "retard" in q:
+            sql = """
+            SELECT COUNT(*) AS nombre_documents_en_retard
+            FROM documents
+            WHERE document_en_retard = 'Oui';
+            """
+            st.subheader("Nombre de documents en retard")
+            st.dataframe(executer_requete(sql))
+
+        elif "risque" in q:
+            sql = """
+            SELECT COUNT(*) AS nombre_documents_risque_eleve
+            FROM documents
+            WHERE risque_retard = 'Élevé';
+            """
+            st.subheader("Nombre de documents à risque élevé")
+            st.dataframe(executer_requete(sql))
+
+        else:
+            sql = "SELECT COUNT(*) AS nombre_total_documents FROM documents;"
+            st.subheader("Nombre total de documents")
+            st.dataframe(executer_requete(sql))
+
+    #  DOCUMENTS EN RETARD
+    elif "retard" in q:
+        sql = """
+        SELECT id_document, nom_document, service, responsable,
+               jours_depuis_maj, document_en_retard, risque_retard
+        FROM documents
+        WHERE document_en_retard = 'Oui'
+        ORDER BY jours_depuis_maj DESC;
+        """
+        st.subheader("Documents en retard")
+        st.dataframe(executer_requete(sql))
+
+    #  RISQUE ÉLEVÉ
+    elif "risque" in q:
+        sql = """
+        SELECT id_document, nom_document, service, responsable,
+               jours_depuis_maj, risque_retard
+        FROM documents
+        WHERE risque_retard = 'Élevé'
+        ORDER BY jours_depuis_maj DESC;
+        """
+        st.subheader("Documents à risque élevé")
+        st.dataframe(executer_requete(sql))
+
+    #  PAR SERVICE
+    elif "service" in q or "résumé" in q or "resume" in q:
+        sql = """
+        SELECT service,
+               COUNT(*) AS total,
+               SUM(CASE WHEN document_en_retard = 'Oui' THEN 1 ELSE 0 END) AS retard,
+               SUM(CASE WHEN risque_retard = 'Élevé' THEN 1 ELSE 0 END) AS risque
+        FROM documents
+        GROUP BY service
+        ORDER BY retard DESC;
+        """
+        st.subheader("Analyse par service")
+        st.dataframe(executer_requete(sql))
+
+    #  DOCUMENTS ANCIENS
+    elif "ancien" in q or "vieux" in q:
+        sql = """
+        SELECT *
+        FROM documents
+        ORDER BY date_creation ASC
+        LIMIT 10;
+        """
+        st.subheader("Documents les plus anciens")
+        st.dataframe(executer_requete(sql))
+
+    #  DOCUMENTS RÉCENTS
+    elif "recent" in q or "récent" in q:
+        sql = """
+        SELECT *
+        FROM documents
+        ORDER BY date_creation DESC
+        LIMIT 10;
+        """
+        st.subheader("Documents récents")
+        st.dataframe(executer_requete(sql))
+
+    #  TOP RETARD
+    elif "top" in q:
+        sql = """
+        SELECT nom_document, jours_depuis_maj
+        FROM documents
+        ORDER BY jours_depuis_maj DESC
+        LIMIT 5;
+        """
+        st.subheader("Top 5 documents les plus en retard")
+        st.dataframe(executer_requete(sql))
+
+    else:
+        st.warning("""
+Je peux répondre à :
+- nombre de documents
+- documents en retard
+- documents à risque
+- résumé par service
+- documents récents 
+- documents anciens
+- top retard
+""")
